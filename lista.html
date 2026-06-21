@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lista">
+<title>Lista za kupovinu</title>
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --border: #e8e6e0;
+    --border-mid: #d4d1c8;
+    --text: #1a1917;
+    --text-muted: #7a7870;
+    --accent: #2d6a4f;
+    --accent-light: #e8f3ee;
+    --danger: #c0392b;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 16px 10px; position: sticky; top: 0; z-index: 100; }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .app-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; display:flex; align-items:center; gap:6px; }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; transition: background 0.3s; }
+  .sync-dot.online { background: #2d6a4f; }
+  .sync-dot.syncing { background: #d4a017; animation: pulse 1s infinite; }
+  .sync-dot.offline { background: #c0392b; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .header-actions { display: flex; gap: 8px; }
+  .icon-btn { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--text-muted); }
+  .icon-btn:active { background: var(--bg); }
+
+  .add-form { padding: 10px 16px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .add-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .add-row input { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; background: var(--bg); color: var(--text); outline: none; }
+  .add-row input:focus { border-color: var(--accent); }
+  .add-meta { display: flex; gap: 8px; margin-bottom: 8px; }
+  .add-meta input[type=number] { width: 64px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--bg); color: var(--text); outline: none; }
+  .add-meta select { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--bg); color: var(--text); outline: none; appearance: none; min-width: 0; }
+  .btn-add { padding: 10px 18px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .btn-add:active { opacity: 0.85; }
+
+  .store-row { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
+  .store-row::-webkit-scrollbar { display:none; }
+  .store-chip { flex-shrink:0; padding:7px 12px; border-radius:20px; font-size:13px; font-weight:500; border:1.5px solid var(--border); background:var(--bg); color:var(--text-muted); cursor:pointer; display:flex; align-items:center; gap:4px; }
+  .store-chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .section { padding: 0 16px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 8px; }
+  .section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); }
+  .section-count { font-size: 12px; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 2px 8px; }
+
+  .divider { display: flex; align-items: center; gap: 10px; padding: 8px 16px; }
+  .divider-line { flex: 1; height: 1px; background: var(--border-mid); }
+  .divider-label { font-size: 11px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.5px; white-space: nowrap; }
+
+  .item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 6px; cursor: pointer; user-select: none; transition: opacity 0.15s; }
+  .item:active { opacity: 0.75; }
+  .item.in-cart { background: var(--accent-light); border-color: #b7d9c8; }
+
+  .check { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border-mid); background: transparent; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: transparent; transition: all 0.15s; }
+  .in-cart .check { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .item-body { flex: 1; min-width: 0; }
+  .item-name { font-size: 15px; color: var(--text); }
+  .item-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .store-pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 500; margin-left: 4px; }
+
+  .item-del { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 18px; flex-shrink: 0; border-radius: 6px; }
+  .item-del:active { background: #fee2e2; color: var(--danger); }
+
+  .group-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin: 12px 0 6px; padding-left: 2px; display:flex; align-items:center; gap:6px; }
+
+  .empty { text-align: center; padding: 28px 16px; color: var(--text-muted); font-size: 14px; }
+  .empty-icon { font-size: 36px; display: block; margin-bottom: 8px; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 20px 20px 0 0; padding: 20px 20px 40px; width: 100%; max-width: 480px; }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 14px; }
+  .modal p { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
+  .modal input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; background: var(--bg); color: var(--text); margin-bottom: 12px; text-align: center; letter-spacing: 2px; font-weight: 600; }
+  .modal-row { display: flex; gap: 10px; }
+  .modal-row button { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; cursor: pointer; background: var(--bg); color: var(--text); }
+  .modal-row button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .close-btn { float: right; font-size: 22px; color: var(--text-muted); cursor: pointer; margin-top: -4px; }
+  .room-code-display { text-align:center; font-size: 24px; font-weight:700; letter-spacing: 3px; color: var(--accent); padding: 14px; background: var(--accent-light); border-radius: var(--radius-sm); margin-bottom: 12px; word-break: break-all; }
+
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1a1917; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; max-width:90vw; text-align:center; }
+  .toast.show { opacity: 1; }
+
+  .spacer { height: 32px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <span class="app-title">🛒 Lista <span class="sync-dot" id="sync-dot"></span></span>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="openRoom()" title="Deli">👥</button>
+      <button class="icon-btn" onclick="clearCart()" title="Obriši kupljeno">✓</button>
+    </div>
+  </div>
+  <div class="add-form" style="padding:0">
+    <div class="add-row">
+      <input type="text" id="item-input" placeholder="Nova namirnica..." maxlength="60" />
+      <button class="btn-add" onclick="addItem()">Dodaj</button>
+    </div>
+    <div class="add-meta">
+      <input type="number" id="qty-input" value="1" min="0.1" step="0.1" />
+      <select id="unit-select">
+        <option>kom</option><option>kg</option><option>g</option>
+        <option>l</option><option>ml</option><option>pak</option><option>kut</option>
+      </select>
+    </div>
+    <div class="store-row" id="store-picker"></div>
+  </div>
+</div>
+
+<div class="section" id="cart-section">
+  <div class="section-header">
+    <span class="section-title">Za kupovinu</span>
+    <span class="section-count" id="cart-count">0</span>
+  </div>
+  <div id="cart-list"></div>
+</div>
+
+<div class="divider">
+  <div class="divider-line"></div>
+  <div class="divider-label">SVE NAMIRNICE</div>
+  <div class="divider-line"></div>
+</div>
+
+<div class="section" id="pantry-section">
+  <div id="pantry-list"></div>
+</div>
+
+<div class="spacer"></div>
+
+<!-- ROOM MODAL -->
+<div class="overlay" id="room-overlay" onclick="if(event.target===this)closeRoom()">
+  <div class="modal">
+    <span class="close-btn" onclick="closeRoom()">×</span>
+    <h2>Deli listu sa ukućanima</h2>
+    <div id="room-current" style="display:none">
+      <p>Vaša soba (pošalji ovaj kod ženi da unese u svojoj aplikaciji):</p>
+      <div class="room-code-display" id="room-code-show"></div>
+      <div class="modal-row">
+        <button class="primary" onclick="copyRoomCode()">📋 Kopiraj kod</button>
+        <button onclick="leaveRoom()">Napusti sobu</button>
+      </div>
+    </div>
+    <div id="room-join">
+      <p>Unesi kod sobe da se povežeš sa postojećom listom, ili napravi novu sobu.</p>
+      <input type="text" id="room-code-input" placeholder="npr. PLAVA-MACKA-12" maxlength="20" style="text-transform:uppercase" />
+      <div class="modal-row">
+        <button class="primary" onclick="joinRoom()">Poveži se</button>
+        <button onclick="createRoom()">Nova soba</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script>
+// ===== FIREBASE CONFIG (vaš projekat) =====
+const firebaseConfig = {
+  apiKey: "AIzaSyAXXWIqMsZJW0G7HMtGrMcKHT6H19jzeR4",
+  authDomain: "shopping-list-dcccb.firebaseapp.com",
+  databaseURL: "https://shopping-list-dcccb-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "shopping-list-dcccb",
+  storageBucket: "shopping-list-dcccb.firebasestorage.app",
+  messagingSenderId: "128992476891",
+  appId: "1:128992476891:web:58b3d0badb88609bf716fe"
+};
+
+const STORES = [
+  { id: "Maxi", emoji: "🛒" },
+  { id: "Lidl", emoji: "🏪" },
+  { id: "Metro", emoji: "📦" },
+  { id: "DM", emoji: "💊" },
+  { id: "Lilly", emoji: "🌸" },
+  { id: "Pijaca", emoji: "🥬" },
+  { id: "Ostalo", emoji: "🏬" }
+];
+
+let selectedStore = "Maxi";
+let items = [];
+let roomCode = localStorage.getItem('sl_room') || null;
+let fbRef = null;
+let isFirebaseReady = false;
+
+function initFirebase() {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    isFirebaseReady = true;
+  } catch(e) {
+    console.error('Firebase init failed', e);
+    isFirebaseReady = false;
+  }
+}
+initFirebase();
+
+function renderStorePicker() {
+  const el = document.getElementById('store-picker');
+  el.innerHTML = STORES.map(s =>
+    `<div class="store-chip${s.id===selectedStore?' selected':''}" onclick="selectStore('${s.id}')">${s.emoji} ${s.id}</div>`
+  ).join('');
+}
+function selectStore(id) { selectedStore = id; renderStorePicker(); }
+renderStorePicker();
+
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot ' + status;
+}
+
+function loadLocal() {
+  try {
+    const d = localStorage.getItem('sl_items_local');
+    if (d) items = JSON.parse(d);
+  } catch(e) {}
+}
+function saveLocal() {
+  localStorage.setItem('sl_items_local', JSON.stringify(items));
+}
+
+function connectRoom(code) {
+  if (!isFirebaseReady) { setSyncStatus('offline'); loadLocal(); render(); return; }
+  roomCode = code;
+  localStorage.setItem('sl_room', code);
+  setSyncStatus('syncing');
+  if (fbRef) fbRef.off();
+  fbRef = firebase.database().ref('rooms/' + code + '/items');
+  fbRef.on('value', snap => {
+    const data = snap.val();
+    items = data ? Object.values(data) : [];
+    setSyncStatus('online');
+    render();
+  }, err => {
+    console.error('Firebase sync error', err);
+    setSyncStatus('offline');
+    toast('Greška konekcije — provera interneta');
+    loadLocal();
+    render();
+  });
+}
+
+function pushItems() {
+  saveLocal();
+  if (fbRef && isFirebaseReady) {
+    setSyncStatus('syncing');
+    const obj = {};
+    items.forEach(i => obj[i.id] = i);
+    fbRef.set(obj).then(() => setSyncStatus('online')).catch(() => {
+      setSyncStatus('offline');
+      toast('Greška pri sinhronizaciji');
+    });
+  } else {
+    render();
+  }
+}
+
+if (roomCode) {
+  connectRoom(roomCode);
+} else {
+  loadLocal();
+  setSyncStatus('offline');
+  render();
+}
+
+document.getElementById('item-input').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+
+function addItem() {
+  const name = document.getElementById('item-input').value.trim();
+  if (!name) return;
+  const qty = parseFloat(document.getElementById('qty-input').value) || 1;
+  const unit = document.getElementById('unit-select').value;
+  const exists = items.find(i => i.name.toLowerCase() === name.toLowerCase());
+  if (exists) { toast('Već postoji u bazi'); return; }
+  items.push({ id: Date.now() + '_' + Math.random().toString(36).slice(2,7), name, qty, unit, store: selectedStore, inCart: false });
+  document.getElementById('item-input').value = '';
+  document.getElementById('qty-input').value = '1';
+  pushItems();
+  render();
+  toast(`"${name}" dodato (${selectedStore})`);
+}
+
+function toggleCart(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  item.inCart = !item.inCart;
+  pushItems();
+  render();
+}
+
+function delItem(id, e) {
+  e.stopPropagation();
+  items = items.filter(i => i.id !== id);
+  pushItems();
+  render();
+}
+
+function clearCart() {
+  const count = items.filter(i => i.inCart).length;
+  if (count === 0) { toast('Nema kupljenih stavki'); return; }
+  items.forEach(i => { if (i.inCart) i.inCart = false; });
+  pushItems();
+  render();
+  toast('Kupovina završena ✓');
+}
+
+function storeEmoji(id) {
+  const s = STORES.find(x => x.id === id);
+  return s ? s.emoji : '🏬';
+}
+const STORE_COLORS = {
+  "Maxi": ["#fdecea","#a33327"], "Lidl": ["#eaf3de","#2c5215"],
+  "Metro": ["#e8eefb","#1f3a8a"], "DM": ["#fde8f3","#9c1f5e"],
+  "Lilly": ["#fbeaf0","#a13c5e"], "Pijaca": ["#f0f7e6","#3d6b1f"],
+  "Ostalo": ["#f1efea","#3a3832"]
+};
+
+function render() {
+  const cartItems = items.filter(i => i.inCart);
+  const pantryItems = items.filter(i => !i.inCart);
+
+  document.getElementById('cart-count').textContent = cartItems.length;
+
+  const cartEl = document.getElementById('cart-list');
+  if (cartItems.length === 0) {
+    cartEl.innerHTML = '<div class="empty"><span class="empty-icon">🛒</span>Lista je prazna — čekiraj namirnice ispod</div>';
+  } else {
+    const byStore = {};
+    cartItems.forEach(i => { if (!byStore[i.store]) byStore[i.store] = []; byStore[i.store].push(i); });
+    cartEl.innerHTML = Object.entries(byStore).map(([store, list]) =>
+      `<div class="group-label">${storeEmoji(store)} ${store}</div>` +
+      list.map(item => itemHTML(item)).join('')
+    ).join('');
+  }
+
+  const pantryEl = document.getElementById('pantry-list');
+  if (pantryItems.length === 0) {
+    pantryEl.innerHTML = '<div class="empty"><span class="empty-icon">📦</span>Baza je prazna — dodaj namirnice gore</div>';
+  } else {
+    const byStore = {};
+    pantryItems.forEach(i => { if (!byStore[i.store]) byStore[i.store] = []; byStore[i.store].push(i); });
+    pantryEl.innerHTML = Object.entries(byStore).map(([store, list]) =>
+      `<div class="group-label">${storeEmoji(store)} ${store}</div>` +
+      list.map(item => itemHTML(item)).join('')
+    ).join('');
+  }
+}
+
+function itemHTML(item) {
+  const [bg, tc] = STORE_COLORS[item.store] || ['#f5f5f5','#333'];
+  const qtyStr = Number.isInteger(item.qty) ? item.qty : item.qty.toFixed(1);
+  const checkMark = item.inCart ? '✓' : '';
+  const cartClass = item.inCart ? ' in-cart' : '';
+  return `<div class="item${cartClass}" onclick="toggleCart('${item.id}')">
+    <div class="check">${checkMark}</div>
+    <div class="item-body">
+      <div class="item-name">${item.name}</div>
+      <div class="item-sub">${qtyStr} ${item.unit}<span class="store-pill" style="background:${bg};color:${tc}">${item.store}</span></div>
+    </div>
+    <div class="item-del" onclick="delItem('${item.id}', event)">×</div>
+  </div>`;
+}
+
+function openRoom() {
+  document.getElementById('room-overlay').classList.add('open');
+  if (roomCode) {
+    document.getElementById('room-current').style.display = 'block';
+    document.getElementById('room-join').style.display = 'none';
+    document.getElementById('room-code-show').textContent = roomCode;
+  } else {
+    document.getElementById('room-current').style.display = 'none';
+    document.getElementById('room-join').style.display = 'block';
+  }
+}
+function closeRoom() { document.getElementById('room-overlay').classList.remove('open'); }
+
+function generateRoomCode() {
+  const words1 = ['PLAVA','ZELENA','CRVENA','ZUTA','SIVA','BELA'];
+  const words2 = ['MACKA','KUCA','RIBA','PTICA','ZVEZDA','KAFA'];
+  return words1[Math.floor(Math.random()*words1.length)] + '-' + words2[Math.floor(Math.random()*words2.length)] + '-' + Math.floor(Math.random()*90+10);
+}
+
+function createRoom() {
+  const code = generateRoomCode();
+  const oldItems = [...items];
+  connectRoom(code);
+  setTimeout(() => {
+    if (oldItems.length > 0) {
+      items = oldItems;
+      pushItems();
+    }
+  }, 600);
+  closeRoom();
+  toast('Nova soba: ' + code);
+}
+
+function joinRoom() {
+  const input = document.getElementById('room-code-input').value.trim().toUpperCase();
+  if (!input) { toast('Unesi kod sobe'); return; }
+  connectRoom(input);
+  closeRoom();
+  toast('Povezano sa sobom: ' + input);
+}
+
+function leaveRoom() {
+  if (fbRef) fbRef.off();
+  fbRef = null;
+  roomCode = null;
+  localStorage.removeItem('sl_room');
+  setSyncStatus('offline');
+  loadLocal();
+  render();
+  closeRoom();
+  toast('Napustio si sobu — radiš lokalno');
+}
+
+function copyRoomCode() {
+  navigator.clipboard.writeText(roomCode).then(() => toast('Kod kopiran!')).catch(() => toast('Kod: ' + roomCode));
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

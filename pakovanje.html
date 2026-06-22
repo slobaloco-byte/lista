@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pakovanje">
+<title>Pakovanje za putovanje</title>
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --border: #e8e6e0;
+    --border-mid: #d4d1c8;
+    --text: #1a1917;
+    --text-muted: #7a7870;
+    --accent: #2d5f8a;
+    --accent-light: #e8eff5;
+    --danger: #c0392b;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 16px 10px; position: sticky; top: 0; z-index: 100; }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .app-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; display:flex; align-items:center; gap:6px; }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; transition: background 0.3s; }
+  .sync-dot.online { background: #2d5f8a; }
+  .sync-dot.syncing { background: #d4a017; animation: pulse 1s infinite; }
+  .sync-dot.offline { background: #c0392b; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .header-actions { display: flex; gap: 8px; }
+  .icon-btn { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--text-muted); }
+  .icon-btn:active { background: var(--bg); }
+
+  .add-form { padding: 10px 16px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .add-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .add-row input { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; background: var(--bg); color: var(--text); outline: none; }
+  .add-row input:focus { border-color: var(--accent); }
+  .btn-add { padding: 10px 18px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .btn-add:active { opacity: 0.85; }
+
+  .cat-row { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
+  .cat-row::-webkit-scrollbar { display:none; }
+  .cat-chip { flex-shrink:0; padding:7px 12px; border-radius:20px; font-size:13px; font-weight:500; border:1.5px solid var(--border); background:var(--bg); color:var(--text-muted); cursor:pointer; display:flex; align-items:center; gap:4px; }
+  .cat-chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .section { padding: 0 16px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 8px; }
+  .section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); }
+  .section-count { font-size: 12px; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 2px 8px; }
+
+  .divider { display: flex; align-items: center; gap: 10px; padding: 8px 16px; }
+  .divider-line { flex: 1; height: 1px; background: var(--border-mid); }
+  .divider-label { font-size: 11px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.5px; white-space: nowrap; }
+
+  .item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 6px; cursor: pointer; user-select: none; transition: opacity 0.15s; }
+  .item:active { opacity: 0.75; }
+  .item.in-bag { background: var(--accent-light); border-color: #b9d2e4; }
+
+  .check { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border-mid); background: transparent; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: transparent; transition: all 0.15s; }
+  .in-bag .check { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .item-body { flex: 1; min-width: 0; }
+  .item-name { font-size: 15px; color: var(--text); }
+  .item-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .cat-pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 500; }
+
+  .item-del { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 18px; flex-shrink: 0; border-radius: 6px; }
+  .item-del:active { background: #fee2e2; color: var(--danger); }
+
+  .group-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin: 12px 0 6px; padding-left: 2px; display:flex; align-items:center; gap:6px; }
+
+  .empty { text-align: center; padding: 28px 16px; color: var(--text-muted); font-size: 14px; }
+  .empty-icon { font-size: 36px; display: block; margin-bottom: 8px; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 20px 20px 0 0; padding: 20px 20px 40px; width: 100%; max-width: 480px; }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 14px; }
+  .modal p { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
+  .modal input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; background: var(--bg); color: var(--text); margin-bottom: 12px; text-align: center; letter-spacing: 2px; font-weight: 600; }
+  .modal-row { display: flex; gap: 10px; }
+  .modal-row button { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; cursor: pointer; background: var(--bg); color: var(--text); }
+  .modal-row button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .close-btn { float: right; font-size: 22px; color: var(--text-muted); cursor: pointer; margin-top: -4px; }
+  .room-code-display { text-align:center; font-size: 24px; font-weight:700; letter-spacing: 3px; color: var(--accent); padding: 14px; background: var(--accent-light); border-radius: var(--radius-sm); margin-bottom: 12px; word-break: break-all; }
+
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1a1917; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; max-width:90vw; text-align:center; }
+  .toast.show { opacity: 1; }
+
+  .spacer { height: 32px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <span class="app-title">🧳 Pakovanje <span class="sync-dot" id="sync-dot"></span></span>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="openRoom()" title="Deli">👥</button>
+      <button class="icon-btn" onclick="clearBag()" title="Resetuj kofer (sve nazad u bazu)">✓</button>
+    </div>
+  </div>
+  <div class="add-form" style="padding:0">
+    <div class="add-row">
+      <input type="text" id="item-input" placeholder="Nova stvar za pakovanje..." maxlength="60" />
+      <button class="btn-add" onclick="addItem()">Dodaj</button>
+    </div>
+    <div class="cat-row" id="cat-picker"></div>
+  </div>
+</div>
+
+<div class="section" id="bag-section">
+  <div class="section-header">
+    <span class="section-title">Za pakovanje (kofer)</span>
+    <span class="section-count" id="bag-count">0</span>
+  </div>
+  <div id="bag-list"></div>
+</div>
+
+<div class="divider">
+  <div class="divider-line"></div>
+  <div class="divider-label">SVE STVARI</div>
+  <div class="divider-line"></div>
+</div>
+
+<div class="section" id="pantry-section">
+  <div id="pantry-list"></div>
+</div>
+
+<div class="spacer"></div>
+
+<!-- ROOM MODAL -->
+<div class="overlay" id="room-overlay" onclick="if(event.target===this)closeRoom()">
+  <div class="modal">
+    <span class="close-btn" onclick="closeRoom()">×</span>
+    <h2>Deli listu sa ukućanima</h2>
+    <div id="room-current" style="display:none">
+      <p>Vaša soba (pošalji ovaj kod ženi da unese u svojoj aplikaciji):</p>
+      <div class="room-code-display" id="room-code-show"></div>
+      <div class="modal-row">
+        <button class="primary" onclick="copyRoomCode()">📋 Kopiraj kod</button>
+        <button onclick="leaveRoom()">Napusti sobu</button>
+      </div>
+    </div>
+    <div id="room-join">
+      <p>Unesi kod sobe da se povežeš sa postojećom listom, ili napravi novu sobu.</p>
+      <input type="text" id="room-code-input" placeholder="npr. PLAVA-MACKA-12" maxlength="20" style="text-transform:uppercase" />
+      <div class="modal-row">
+        <button class="primary" onclick="joinRoom()">Poveži se</button>
+        <button onclick="createRoom()">Nova soba</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script>
+// Isti Firebase projekat kao shopping lista, ali poseban "grana" podataka (packing/)
+const firebaseConfig = {
+  apiKey: "AIzaSyAXXWIqMsZJW0G7HMtGrMcKHT6H19jzeR4",
+  authDomain: "shopping-list-dcccb.firebaseapp.com",
+  databaseURL: "https://shopping-list-dcccb-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "shopping-list-dcccb",
+  storageBucket: "shopping-list-dcccb.firebasestorage.app",
+  messagingSenderId: "128992476891",
+  appId: "1:128992476891:web:58b3d0badb88609bf716fe"
+};
+
+const CATEGORIES = [
+  { id: "Odeća", emoji: "👕" },
+  { id: "Obuća", emoji: "👟" },
+  { id: "Higijena", emoji: "🧼" },
+  { id: "Lekovi", emoji: "💊" },
+  { id: "Elektronika/punjači", emoji: "🔌" },
+  { id: "Dokumenti", emoji: "📄" },
+  { id: "Igračke/Deca", emoji: "🧸" },
+  { id: "Ostalo", emoji: "🎒" }
+];
+
+let selectedCat = "Odeća";
+let items = [];
+let roomCode = localStorage.getItem('pk_room') || null;
+let fbRef = null;
+let isFirebaseReady = false;
+
+function initFirebase() {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    isFirebaseReady = true;
+  } catch(e) {
+    console.error('Firebase init failed', e);
+    isFirebaseReady = false;
+  }
+}
+initFirebase();
+
+function renderCatPicker() {
+  const el = document.getElementById('cat-picker');
+  el.innerHTML = CATEGORIES.map(c =>
+    `<div class="cat-chip${c.id===selectedCat?' selected':''}" onclick="selectCat('${c.id}')">${c.emoji} ${c.id}</div>`
+  ).join('');
+}
+function selectCat(id) { selectedCat = id; renderCatPicker(); }
+renderCatPicker();
+
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot ' + status;
+}
+
+function loadLocal() {
+  try {
+    const d = localStorage.getItem('pk_items_local');
+    if (d) items = JSON.parse(d);
+  } catch(e) {}
+}
+function saveLocal() {
+  localStorage.setItem('pk_items_local', JSON.stringify(items));
+}
+
+function connectRoom(code) {
+  if (!isFirebaseReady) { setSyncStatus('offline'); loadLocal(); render(); return; }
+  roomCode = code;
+  localStorage.setItem('pk_room', code);
+  setSyncStatus('syncing');
+  if (fbRef) fbRef.off();
+  // koristi "packing/" granu da se ne meša sa shopping listom u istoj bazi
+  fbRef = firebase.database().ref('packing/' + code + '/items');
+  fbRef.on('value', snap => {
+    const data = snap.val();
+    items = data ? Object.values(data) : [];
+    setSyncStatus('online');
+    render();
+  }, err => {
+    console.error('Firebase sync error', err);
+    setSyncStatus('offline');
+    toast('Greška konekcije — provera interneta');
+    loadLocal();
+    render();
+  });
+}
+
+function pushItems() {
+  saveLocal();
+  if (fbRef && isFirebaseReady) {
+    setSyncStatus('syncing');
+    const obj = {};
+    items.forEach(i => obj[i.id] = i);
+    fbRef.set(obj).then(() => setSyncStatus('online')).catch(() => {
+      setSyncStatus('offline');
+      toast('Greška pri sinhronizaciji');
+    });
+  } else {
+    render();
+  }
+}
+
+if (roomCode) {
+  connectRoom(roomCode);
+} else {
+  loadLocal();
+  setSyncStatus('offline');
+  render();
+}
+
+document.getElementById('item-input').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+
+function addItem() {
+  const name = document.getElementById('item-input').value.trim();
+  if (!name) return;
+  const exists = items.find(i => i.name.toLowerCase() === name.toLowerCase());
+  if (exists) { toast('Već postoji u bazi'); return; }
+  items.push({ id: Date.now() + '_' + Math.random().toString(36).slice(2,7), name, cat: selectedCat, inBag: false });
+  document.getElementById('item-input').value = '';
+  pushItems();
+  render();
+  toast(`"${name}" dodato (${selectedCat})`);
+}
+
+function toggleBag(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  item.inBag = !item.inBag;
+  pushItems();
+  render();
+}
+
+function delItem(id, e) {
+  e.stopPropagation();
+  items = items.filter(i => i.id !== id);
+  pushItems();
+  render();
+}
+
+function clearBag() {
+  const count = items.filter(i => i.inBag).length;
+  if (count === 0) { toast('Kofer je već prazan'); return; }
+  items.forEach(i => { if (i.inBag) i.inBag = false; });
+  pushItems();
+  render();
+  toast('Kofer resetovan — sve stvari su nazad u bazi ✓');
+}
+
+function catEmoji(id) {
+  const c = CATEGORIES.find(x => x.id === id);
+  return c ? c.emoji : '🎒';
+}
+const CAT_COLORS = {
+  "Odeća": ["#e8eef5","#1f3a5f"], "Obuća": ["#fdf0e6","#7a4a1a"],
+  "Higijena": ["#e6f5f0","#0d5c45"], "Lekovi": ["#fde8ea","#9c1f2e"],
+  "Elektronika/punjači": ["#eeedfb","#2e2680"], "Dokumenti": ["#f5f0e6","#6b5a1a"],
+  "Igračke/Deca": ["#fbeaf0","#a13c5e"], "Ostalo": ["#f1efea","#3a3832"]
+};
+
+function render() {
+  const bagItems = items.filter(i => i.inBag);
+  const pantryItems = items.filter(i => !i.inBag);
+
+  document.getElementById('bag-count').textContent = bagItems.length;
+
+  const bagEl = document.getElementById('bag-list');
+  if (bagItems.length === 0) {
+    bagEl.innerHTML = '<div class="empty"><span class="empty-icon">🧳</span>Kofer je prazan — čekiraj stvari ispod</div>';
+  } else {
+    const byCat = {};
+    bagItems.forEach(i => { if (!byCat[i.cat]) byCat[i.cat] = []; byCat[i.cat].push(i); });
+    bagEl.innerHTML = Object.entries(byCat).map(([cat, list]) =>
+      `<div class="group-label">${catEmoji(cat)} ${cat}</div>` +
+      list.map(item => itemHTML(item)).join('')
+    ).join('');
+  }
+
+  const pantryEl = document.getElementById('pantry-list');
+  if (pantryItems.length === 0) {
+    pantryEl.innerHTML = '<div class="empty"><span class="empty-icon">📦</span>Baza je prazna — dodaj stvari gore</div>';
+  } else {
+    const byCat = {};
+    pantryItems.forEach(i => { if (!byCat[i.cat]) byCat[i.cat] = []; byCat[i.cat].push(i); });
+    pantryEl.innerHTML = Object.entries(byCat).map(([cat, list]) =>
+      `<div class="group-label">${catEmoji(cat)} ${cat}</div>` +
+      list.map(item => itemHTML(item)).join('')
+    ).join('');
+  }
+}
+
+function itemHTML(item) {
+  const [bg, tc] = CAT_COLORS[item.cat] || ['#f5f5f5','#333'];
+  const checkMark = item.inBag ? '✓' : '';
+  const bagClass = item.inBag ? ' in-bag' : '';
+  return `<div class="item${bagClass}" onclick="toggleBag('${item.id}')">
+    <div class="check">${checkMark}</div>
+    <div class="item-body">
+      <div class="item-name">${item.name}</div>
+      <div class="item-sub"><span class="cat-pill" style="background:${bg};color:${tc}">${item.cat}</span></div>
+    </div>
+    <div class="item-del" onclick="delItem('${item.id}', event)">×</div>
+  </div>`;
+}
+
+function openRoom() {
+  document.getElementById('room-overlay').classList.add('open');
+  if (roomCode) {
+    document.getElementById('room-current').style.display = 'block';
+    document.getElementById('room-join').style.display = 'none';
+    document.getElementById('room-code-show').textContent = roomCode;
+  } else {
+    document.getElementById('room-current').style.display = 'none';
+    document.getElementById('room-join').style.display = 'block';
+  }
+}
+function closeRoom() { document.getElementById('room-overlay').classList.remove('open'); }
+
+function generateRoomCode() {
+  const words1 = ['PLAVA','ZELENA','CRVENA','ZUTA','SIVA','BELA'];
+  const words2 = ['VALIZA','TORBA','RANAC','KOFER','PASOS','KARTA'];
+  return words1[Math.floor(Math.random()*words1.length)] + '-' + words2[Math.floor(Math.random()*words2.length)] + '-' + Math.floor(Math.random()*90+10);
+}
+
+function createRoom() {
+  const code = generateRoomCode();
+  const oldItems = [...items];
+  connectRoom(code);
+  setTimeout(() => {
+    if (oldItems.length > 0) {
+      items = oldItems;
+      pushItems();
+    }
+  }, 600);
+  closeRoom();
+  toast('Nova soba: ' + code);
+}
+
+function joinRoom() {
+  const input = document.getElementById('room-code-input').value.trim().toUpperCase();
+  if (!input) { toast('Unesi kod sobe'); return; }
+  connectRoom(input);
+  closeRoom();
+  toast('Povezano sa sobom: ' + input);
+}
+
+function leaveRoom() {
+  if (fbRef) fbRef.off();
+  fbRef = null;
+  roomCode = null;
+  localStorage.removeItem('pk_room');
+  setSyncStatus('offline');
+  loadLocal();
+  render();
+  closeRoom();
+  toast('Napustio si sobu — radiš lokalno');
+}
+
+function copyRoomCode() {
+  navigator.clipboard.writeText(roomCode).then(() => toast('Kod kopiran!')).catch(() => toast('Kod: ' + roomCode));
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

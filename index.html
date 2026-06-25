@@ -50,6 +50,11 @@
   .store-chip { flex-shrink:0; padding:7px 12px; border-radius:20px; font-size:13px; font-weight:500; border:1.5px solid var(--border); background:var(--bg); color:var(--text-muted); cursor:pointer; display:flex; align-items:center; gap:4px; }
   .store-chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+  .search-bar { position: relative; background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px; }
+  .search-bar input { width: 100%; padding: 10px 36px 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--bg); color: var(--text); outline: none; }
+  .search-bar input:focus { border-color: var(--accent); }
+  .search-clear { position: absolute; right: 26px; top: 50%; transform: translateY(-50%); font-size: 20px; color: var(--text-muted); cursor: pointer; padding: 4px; }
+
   .section { padding: 0 16px; }
   .section-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 8px; }
   .section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); }
@@ -123,6 +128,11 @@
   </div>
 </div>
 
+<div class="search-bar">
+  <input type="text" id="search-input" placeholder="🔍 Pretraži namirnice..." oninput="onSearch()" />
+  <span class="search-clear" id="search-clear" onclick="clearSearch()" style="display:none">×</span>
+</div>
+
 <div class="section" id="cart-section">
   <div class="section-header">
     <span class="section-title">Za kupovinu</span>
@@ -190,11 +200,15 @@ const STORES = [
   { id: "DM", emoji: "💊" },
   { id: "Lilly", emoji: "🌸" },
   { id: "Pijaca", emoji: "🥬" },
+  { id: "Mesara", emoji: "🥩" },
+  { id: "Apoteka", emoji: "⚕️" },
+  { id: "Zdrava Hrana", emoji: "🌾" },
   { id: "Ostalo", emoji: "🏬" }
 ];
 
 let selectedStore = "Maxi";
 let items = [];
+let searchTerm = "";
 let roomCode = localStorage.getItem('sl_room') || null;
 let fbRef = null;
 let isFirebaseReady = false;
@@ -218,6 +232,18 @@ function renderStorePicker() {
 }
 function selectStore(id) { selectedStore = id; renderStorePicker(); }
 renderStorePicker();
+
+function onSearch() {
+  searchTerm = document.getElementById('search-input').value.trim().toLowerCase();
+  document.getElementById('search-clear').style.display = searchTerm ? 'block' : 'none';
+  render();
+}
+function clearSearch() {
+  searchTerm = "";
+  document.getElementById('search-input').value = "";
+  document.getElementById('search-clear').style.display = 'none';
+  render();
+}
 
 function setSyncStatus(status) {
   const dot = document.getElementById('sync-dot');
@@ -327,18 +353,25 @@ const STORE_COLORS = {
   "Maxi": ["#fdecea","#a33327"], "Lidl": ["#eaf3de","#2c5215"],
   "Metro": ["#e8eefb","#1f3a8a"], "DM": ["#fde8f3","#9c1f5e"],
   "Lilly": ["#fbeaf0","#a13c5e"], "Pijaca": ["#f0f7e6","#3d6b1f"],
+  "Mesara": ["#fbe9e7","#8a2e1f"], "Apoteka": ["#e6f7f5","#0d6b5c"],
+  "Zdrava Hrana": ["#eef7e3","#4a6b1f"],
   "Ostalo": ["#f1efea","#3a3832"]
 };
 
 function render() {
-  const cartItems = items.filter(i => i.inCart);
-  const pantryItems = items.filter(i => !i.inCart);
+  const filtered = searchTerm
+    ? items.filter(i => i.name.toLowerCase().includes(searchTerm))
+    : items;
+  const cartItems = filtered.filter(i => i.inCart);
+  const pantryItems = filtered.filter(i => !i.inCart);
 
   document.getElementById('cart-count').textContent = cartItems.length;
 
   const cartEl = document.getElementById('cart-list');
   if (cartItems.length === 0) {
-    cartEl.innerHTML = '<div class="empty"><span class="empty-icon">🛒</span>Lista je prazna — čekiraj namirnice ispod</div>';
+    cartEl.innerHTML = searchTerm
+      ? '<div class="empty"><span class="empty-icon">🔍</span>Nema rezultata u listi za kupovinu</div>'
+      : '<div class="empty"><span class="empty-icon">🛒</span>Lista je prazna — čekiraj namirnice ispod</div>';
   } else {
     const byStore = {};
     cartItems.forEach(i => { if (!byStore[i.store]) byStore[i.store] = []; byStore[i.store].push(i); });
@@ -350,7 +383,9 @@ function render() {
 
   const pantryEl = document.getElementById('pantry-list');
   if (pantryItems.length === 0) {
-    pantryEl.innerHTML = '<div class="empty"><span class="empty-icon">📦</span>Baza je prazna — dodaj namirnice gore</div>';
+    pantryEl.innerHTML = searchTerm
+      ? '<div class="empty"><span class="empty-icon">🔍</span>Nema rezultata u bazi</div>'
+      : '<div class="empty"><span class="empty-icon">📦</span>Baza je prazna — dodaj namirnice gore</div>';
   } else {
     const byStore = {};
     pantryItems.forEach(i => { if (!byStore[i.store]) byStore[i.store] = []; byStore[i.store].push(i); });

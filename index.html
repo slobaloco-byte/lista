@@ -73,7 +73,8 @@
 
   .item-body { flex: 1; min-width: 0; }
   .item-name { font-size: 15px; color: var(--text); }
-  .item-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .item-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .item-time { white-space: nowrap; flex-shrink: 0; }
   .store-pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 500; margin-left: 4px; }
 
   .item-del { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 18px; flex-shrink: 0; border-radius: 6px; }
@@ -173,6 +174,18 @@
         <button class="primary" onclick="joinRoom()">Poveži se</button>
         <button onclick="createRoom()">Nova soba</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE MODAL -->
+<div class="overlay" id="confirm-overlay" onclick="if(event.target===this)cancelDelete()">
+  <div class="modal">
+    <h2>Obrisati stavku?</h2>
+    <p>Da li želite da obrišete "<strong id="confirm-name"></strong>" iz baze? Stavka će nestati i kod vas i kod ukućana.</p>
+    <div class="modal-row">
+      <button onclick="cancelDelete()">Ne</button>
+      <button class="primary" style="background:var(--danger);border-color:var(--danger)" onclick="confirmDelete()">Da, obriši</button>
     </div>
   </div>
 </div>
@@ -313,7 +326,7 @@ function addItem() {
   const unit = document.getElementById('unit-select').value;
   const exists = items.find(i => i.name.toLowerCase() === name.toLowerCase());
   if (exists) { toast('Već postoji u bazi'); return; }
-  items.push({ id: Date.now() + '_' + Math.random().toString(36).slice(2,7), name, qty, unit, store: selectedStore, inCart: false });
+  items.push({ id: Date.now() + '_' + Math.random().toString(36).slice(2,7), name, qty, unit, store: selectedStore, inCart: false, updatedAt: Date.now() });
   document.getElementById('item-input').value = '';
   document.getElementById('qty-input').value = '1';
   pushItems();
@@ -325,21 +338,38 @@ function toggleCart(id) {
   const item = items.find(i => i.id === id);
   if (!item) return;
   item.inCart = !item.inCart;
+  item.updatedAt = Date.now();
   pushItems();
   render();
 }
 
+let pendingDeleteId = null;
 function delItem(id, e) {
   e.stopPropagation();
-  items = items.filter(i => i.id !== id);
-  pushItems();
-  render();
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  pendingDeleteId = id;
+  document.getElementById('confirm-name').textContent = item.name;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function cancelDelete() {
+  pendingDeleteId = null;
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+function confirmDelete() {
+  if (pendingDeleteId) {
+    items = items.filter(i => i.id !== pendingDeleteId);
+    pushItems();
+    render();
+    toast('Stavka obrisana');
+  }
+  cancelDelete();
 }
 
 function clearCart() {
   const count = items.filter(i => i.inCart).length;
   if (count === 0) { toast('Nema kupljenih stavki'); return; }
-  items.forEach(i => { if (i.inCart) i.inCart = false; });
+  items.forEach(i => { if (i.inCart) { i.inCart = false; i.updatedAt = Date.now(); } });
   pushItems();
   render();
   toast('Kupovina završena ✓');
@@ -396,6 +426,19 @@ function render() {
   }
 }
 
+// Vreme poslednje izmene. Za stare artikle bez zapisa koristi vreme kreiranja iz ID-a.
+function itemTime(item) {
+  return item.updatedAt || parseInt(String(item.id).split('_')[0], 10) || 0;
+}
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, '0');
+  let s = p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.';
+  if (d.getFullYear() !== new Date().getFullYear()) s += d.getFullYear();
+  return s + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
 function itemHTML(item) {
   const [bg, tc] = STORE_COLORS[item.store] || ['#f5f5f5','#333'];
   const qtyStr = Number.isInteger(item.qty) ? item.qty : item.qty.toFixed(1);
@@ -405,7 +448,7 @@ function itemHTML(item) {
     <div class="check">${checkMark}</div>
     <div class="item-body">
       <div class="item-name">${item.name}</div>
-      <div class="item-sub">${qtyStr} ${item.unit}<span class="store-pill" style="background:${bg};color:${tc}">${item.store}</span></div>
+      <div class="item-sub"><span>${qtyStr} ${item.unit}<span class="store-pill" style="background:${bg};color:${tc}">${item.store}</span></span><span class="item-time">${formatTime(itemTime(item))}</span></div>
     </div>
     <div class="item-del" onclick="delItem('${item.id}', event)">×</div>
   </div>`;
